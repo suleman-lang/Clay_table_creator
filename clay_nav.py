@@ -99,19 +99,22 @@ def open_path(page: Page, parts: list) -> None:
 # --------------------------------------------------------------------------
 
 # Every cell in a listing row is wrapped in a link to that item's URL. A
-# workbook link contains "/workbooks/<id>" (confirmed live in the source
-# repo); a folder is assumed to use a distinct path segment, inferred as
-# "/folders/<id>" by analogy — NOT confirmed live. If list_contents() below
-# reports every folder as kind="workbook" (or vice versa), open devtools on
-# a real Clay folder view, inspect a sub-folder cell's <a href>, and fix the
-# regex here.
+# workbook link contains "/workbooks/<id>" (confirmed live). A folder link
+# looks like ".../home/f_<id>?..." (also confirmed live, via debug_list.py
+# against a real account — the earlier "/folders/<id>" guess was wrong).
 _COLLECT_ROWS_JS = """() => {
     const out = {};
     for (const a of document.querySelectorAll('a[href]')) {
-        const m = a.href.match(/\\/(workbooks|folders)\\/([^/?]+)/);
-        if (!m) continue;
-        const kind = m[1] === 'workbooks' ? 'workbook' : 'folder';
-        const id = m[2];
+        const href = a.href;
+        let kind = null, id = null;
+        let m = href.match(/\\/workbooks\\/([^/?]+)/);
+        if (m) {
+            kind = 'workbook'; id = m[1];
+        } else {
+            m = href.match(/\\/home\\/(f_[^/?]+)/);
+            if (m) { kind = 'folder'; id = m[1]; }
+        }
+        if (!kind) continue;
         const cell = a.closest('td, [role="cell"], [role="gridcell"]');
         const text = (cell ? cell.textContent : a.textContent).trim();
         if (!(id in out) && text) out[id] = {name: text, kind: kind};

@@ -32,23 +32,24 @@ NEW_CLIENT_CHOICE = "+ Create new client..."
 
 def pick_client(page) -> str:
     """List existing client folders live from Clay and let the user pick one
-    (arrow-key select via `questionary` if installed, else a numbered
-    prompt), or create a new one."""
+    via a numbered prompt, or create a new one.
+
+    Plain input() only — NOT questionary/prompt_toolkit. Playwright's sync
+    API keeps an event loop active in this thread (via greenlets, to fake
+    synchronous calls); prompt_toolkit's Application.run() then tries
+    asyncio.run() on top of that and raises "cannot be called from a running
+    event loop". Keep this picker dependency-free rather than reintroducing
+    that clash.
+    """
     clay_nav.open_path(page, [TOP_FOLDER])
     clients = clay_nav.list_folder_names(page)
     choices = clients + [NEW_CLIENT_CHOICE]
 
-    pick = None
-    try:
-        import questionary
-        pick = questionary.select("Client:", choices=choices).ask()
-    except ImportError:
-        print("\nClients:")
-        for i, c in enumerate(choices, 1):
-            print(f"  {i}. {c}")
-        raw = input("Pick a number: ").strip()
-        if raw.isdigit() and 1 <= int(raw) <= len(choices):
-            pick = choices[int(raw) - 1]
+    print("\nClients:")
+    for i, c in enumerate(choices, 1):
+        print(f"  {i}. {c}")
+    raw = input("Pick a number: ").strip()
+    pick = choices[int(raw) - 1] if raw.isdigit() and 1 <= int(raw) <= len(choices) else None
 
     if pick is None:
         sys.exit("Cancelled.")
